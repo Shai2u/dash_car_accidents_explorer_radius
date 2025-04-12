@@ -7,6 +7,7 @@ Key Features:
 - 
 """
 from dash import Dash, html, dcc, Input, Output, callback
+from dash_extensions.javascript import assign
 import pandas as pd
 import geopandas as gpd
 import dash_leaflet as dl
@@ -81,11 +82,37 @@ for col in columns_list:
     # col_values_color[col]
     items = {}
     for i, item_name in enumerate(df[col].unique()):
-        items[item_name] = px.colors.qualitative.Dark24[i]
+        items[str(item_name)] = px.colors.qualitative.Dark24[i]
     col_values_color[col] = items
 
 # Create pie chart
 fig = create_pie_chart(df, 'HUMRAT_TEUNA', col_values_color['HUMRAT_TEUNA'])
+# Hideout dictionary for map
+
+hide_out_dict = {'active_col': 'HUMRAT_TEUNA',
+                 'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5},
+                 'color_dict': col_values_color}
+def assign_point_to_layer():
+    """
+    Creates a JavaScript function to assign a point to a layer with a specific color.
+
+    The function uses the `active_col` property and the `color_dict` from the context's hideout
+    to determine the fill color of the circle marker.
+
+    Returns
+    -------
+    str
+        A string containing the JavaScript function to be used for assigning points to layers.
+    """
+    point_to_layer = assign("""function(feature, latlng, context){
+        const {active_col, circleOptions, color_dict} = context.hideout;
+        const active_col_val  = feature.properties[active_col];
+        circleOptions.fillColor = color_dict[active_col][active_col_val];
+        return L.circleMarker(latlng, circleOptions);  // render a simple circle marker
+    }""")
+    return point_to_layer
+
+
 
 app.layout = html.Div([
     html.H1('Accidents Map'),
@@ -95,19 +122,24 @@ app.layout = html.Div([
                 dcc.Dropdown(
                     id='column-selector',
                     options=[{'label': col, 'value': col}
-                             for col in columns_list],
+                            for col in columns_list],
                     value='HUMRAT_TEUNA',  # Default value
                     style={'width': '100%', 'marginBottom': '20px'}
                 )
             ]),
             html.Div(dcc.Graph(id='pie-chart', figure=fig),
-                     style={'width': '100%', 'height': '80vh'})
+                    style={'width': '100%', 'height': '80vh'})
         ], style={'width': '25%', 'padding': '10px'}),
         html.Div([
             dl.Map([
                 dl.TileLayer(),
-                dl.GeoJSON(data=gdf_json, id='accidents-geojson')
-            ], center=center, zoom=12, style={'width': '100%', 'height': '80vh'})
+                dl.GeoJSON(
+                    id='accidents-geojson', data=gdf_json,
+                    pointToLayer=assign_point_to_layer(),  # how to draw points
+                    # onEachFeature=assign_on_each_feature(),  # add (custom) tooltip
+                    hideout=hide_out_dict,
+                ),
+            ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'})
         ], style={'width': '75%', 'padding': '10px'})
     ], style={'display': 'flex', 'flexDirection': 'row'})
 ])
@@ -120,6 +152,29 @@ app.layout = html.Div([
 def update_pie_chart(selected_column):
     return create_pie_chart(df, selected_column, col_values_color[selected_column])
 
+@callback(
+    Output('accidents-map-object', 'children'),
+    Input('column-selector', 'value')
+)
+def update_map_colors(selected_column):
+    # Create a new GeoJSON with color properties
+    gdf_copy = gdf.copy()
+    gdf_copy['color'] = gdf_copy[selected_column].map(col_values_color[selected_column])
+    hide_out_dict = {
+    'active_col': col,
+    'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5},
+    'color_dict': col_values_color
+    }
+    children = [
+                dl.TileLayer(),
+                dl.GeoJSON(
+                    id='accidents-geojson', data=gdf_copy.__geo_interface__,
+                    pointToLayer=assign_point_to_layer(),  # how to draw points
+                    # onEachFeature=assign_on_each_feature(),  # add (custom) tooltip
+                    hideout=hide_out_dict,
+                ),
+            ]
+    return children
 
 if __name__ == '__main__':
     # Create geometry column from lat/lon
