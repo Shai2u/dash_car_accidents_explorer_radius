@@ -37,6 +37,7 @@ def create_pie_chart(df: pd.DataFrame, column_name: str, color_map: dict = None)
         fig = px.pie(df, names=column_name,
                      title=f'Distribution of {column_name}',
                      hole=0.4,
+                     color=column_name, 
                      color_discrete_map=color_map)
     else:
         fig = px.pie(df, names=column_name,
@@ -70,7 +71,7 @@ app = Dash(__name__)
 df = pd.read_csv('accidents_2023_processed.csv')
 gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(
     x=df['lon'], y=df['lat']), crs="EPSG:4326")
-gdf_json = gdf.copy().__geo_interface__
+gdf_copy = gdf.copy()
 center = [32.0853, 34.7818]
 columns_list = ['HODESH_TEUNA', 'SUG_DEREH', 'SUG_YOM',
                 'YOM_LAYLA', 'YOM_BASHAVUA', 'HUMRAT_TEUNA', 'PNE_KVISH']
@@ -84,14 +85,16 @@ for col in columns_list:
     for i, item_name in enumerate(df[col].unique()):
         items[str(item_name)] = px.colors.qualitative.Dark24[i]
     col_values_color[col] = items
-
+selected_column = 'HUMRAT_TEUNA'
+gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
+gdf_json = gdf.copy().__geo_interface__
 # Create pie chart
-fig = create_pie_chart(df, 'HUMRAT_TEUNA', col_values_color['HUMRAT_TEUNA'])
+fig = create_pie_chart(df, selected_column, col_values_color[selected_column])
 # Hideout dictionary for map
 
-hide_out_dict = {'active_col': 'HUMRAT_TEUNA',
-                 'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5},
-                 'color_dict': col_values_color}
+hide_out_dict = {'active_col': selected_column,
+                 'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
+                 }
 def assign_point_to_layer():
     """
     Creates a JavaScript function to assign a point to a layer with a specific color.
@@ -105,9 +108,8 @@ def assign_point_to_layer():
         A string containing the JavaScript function to be used for assigning points to layers.
     """
     point_to_layer = assign("""function(feature, latlng, context){
-        const {active_col, circleOptions, color_dict} = context.hideout;
-        const active_col_val  = feature.properties[active_col];
-        circleOptions.fillColor = color_dict[active_col][active_col_val];
+        const {active_col, circleOptions} = context.hideout;
+        circleOptions.fillColor =  feature.properties['color'];
         return L.circleMarker(latlng, circleOptions);  // render a simple circle marker
     }""")
     return point_to_layer
@@ -146,35 +148,20 @@ app.layout = html.Div([
 
 
 @callback(
+    Output('accidents-geojson', 'data'),
+    Output('accidents-geojson', 'hideout'),
     Output('pie-chart', 'figure'),
-    Input('column-selector', 'value')
-)
-def update_pie_chart(selected_column):
-    return create_pie_chart(df, selected_column, col_values_color[selected_column])
-
-@callback(
-    Output('accidents-map-object', 'children'),
     Input('column-selector', 'value')
 )
 def update_map_colors(selected_column):
     # Create a new GeoJSON with color properties
     gdf_copy = gdf.copy()
-    gdf_copy['color'] = gdf_copy[selected_column].map(col_values_color[selected_column])
-    hide_out_dict = {
-    'active_col': col,
-    'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5},
-    'color_dict': col_values_color
-    }
-    children = [
-                dl.TileLayer(),
-                dl.GeoJSON(
-                    id='accidents-geojson', data=gdf_copy.__geo_interface__,
-                    pointToLayer=assign_point_to_layer(),  # how to draw points
-                    # onEachFeature=assign_on_each_feature(),  # add (custom) tooltip
-                    hideout=hide_out_dict,
-                ),
-            ]
-    return children
+    gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
+    hideout={
+            'active_col': col,
+            'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
+            }
+    return gdf_copy.__geo_interface__, hideout, create_pie_chart(df, selected_column, col_values_color[selected_column])
 
 if __name__ == '__main__':
     # Create geometry column from lat/lon
