@@ -14,6 +14,9 @@ import dash_leaflet as dl
 import plotly.express as px
 import json
 from typing import Union, Set
+from shapely.geometry import Point
+from scipy.spatial import cKDTree
+import numpy as np
 
 
 def create_pie_chart(df: pd.DataFrame, column_name: str, color_map: dict = None) -> Union[Set, None]:
@@ -71,12 +74,15 @@ app = Dash(__name__)
 df = pd.read_csv('accidents_2023_processed.csv')
 gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(
     x=df['lon'], y=df['lat']), crs="EPSG:4326")
+gdf = gdf[~gdf.geometry.is_empty].reset_index(drop=True)
 gdf_copy = gdf.copy()
 center = [32.0853, 34.7818]
 columns_list = ['HODESH_TEUNA', 'SUG_DEREH', 'SUG_YOM',
                 'YOM_LAYLA', 'YOM_BASHAVUA', 'HUMRAT_TEUNA', 'PNE_KVISH']
 
-
+# Extract coordinates for KD-tree
+points = np.array([(p.x, p.y) for p in gdf_copy.geometry])
+tree = cKDTree(points)
 # Initialize color dictionary for graphs
 col_values_color = {}
 for col in columns_list:
@@ -171,20 +177,46 @@ app.layout = html.Div([
     State('accidents-map-object', 'clickData'),
     Input('radius-slider', 'value')
 )
-def update_map_colors(selected_column, _, clickdate, radius):
-    # Create a new GeoJSON with color properties
+def update_map(selected_column, _, clickdate, radius):
+    # Create a new GeoDataFrame with color properties
+    gdf_copy = gdf.copy()
+    gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
+    
+    # Set center point
     if clickdate:
         center = clickdate['latlng']['lat'], clickdate['latlng']['lng']
+        center_point = Point(center[1], center[0])  # Note: Point takes (x,y) = (lon,lat)
+        
+        # Create buffer around center point (radius in meters)
+        buffer = center_point.buffer((radius/ 111320))
+        
+        # Extract coordinates for KD-tree
+        # points_copy = points.copy()
+        
+        # Create KD-tree for efficient spatial queries
+        # tree = cKDTree(points_copy)
+        
+        # Find points within buffer using KD-tree
+        # First, get approximate candidates using a bounding box
+        minx, miny, maxx, maxy = buffer.bounds
+        candidates = tree.query_ball_point([(minx + maxx)/2, (miny + maxy)/2], 
+                                         r=np.sqrt((maxx-minx)**2 + (maxy-miny)**2)/2)
+        
+        # Then filter candidates to exact buffer
+        filtered_indices = [i for i in candidates if buffer.contains(Point(points[i]))]
+        
+        # Filter the GeoDataFrame
+        gdf_copy = gdf_copy.iloc[filtered_indices]
     else:
         center = [32.0853, 34.7818]
 
-    gdf_copy = gdf.copy()
-    gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
-    hideout={
-            'active_col': selected_column,
-            'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
-            }
-    return gdf_copy.__geo_interface__, hideout, create_pie_chart(df, selected_column, col_values_color[selected_column]), center, radius
+    
+    hideout = {
+        'active_col': selected_column,
+        'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
+    }
+    
+    return gdf_copy.__geo_interface__, hideout, create_pie_chart(gdf_copy, selected_column, col_values_color[selected_column]), center, radius
 
 
 if __name__ == '__main__':
