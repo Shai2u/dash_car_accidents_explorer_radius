@@ -12,6 +12,44 @@ import geopandas as gpd
 import dash_leaflet as dl
 import plotly.express as px
 import json
+from typing import Union
+
+def create_pie_chart(df: pd.DataFrame, column_name: str) -> Union[set, None]:
+    """
+    Creates a pie chart (donut) figure showing the distribution of values in the specified column.
+    
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data
+        column_name (str): The name of the column to create the pie chart for
+        
+    Returns:
+        Union[px.Figure, None]: A Plotly Express figure object or None if the column doesn't exist
+    """
+    if column_name not in df.columns:
+        return None
+        
+    fig = px.pie(df, names=column_name, 
+                 title=f'Distribution of {column_name}',
+                 hole=0.4)  # Creates a donut chart
+    fig.update_traces(textposition='inside', textinfo='percent')
+    fig.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=100),  # Add top margin for the legend
+        annotations=[dict(
+            text=f'{len(df)}',
+            x=0.5,
+            y=0.5,
+            font_size=20,
+            showarrow=False
+        )]
+    )
+    return fig
 
 app = Dash(__name__)
 
@@ -24,27 +62,7 @@ columns_list =['HODESH_TEUNA', 'SUG_DEREH', 'SUG_YOM',
        'YOM_LAYLA', 'YOM_BASHAVUA', 'HUMRAT_TEUNA', 'PNE_KVISH']
 
 # Create pie chart
-fig = px.pie(df, names='HUMRAT_TEUNA', 
-             title='Distribution of Accident Severity',
-             hole=0.4)  # Creates a donut chart
-fig.update_traces(textposition='inside', textinfo='percent')
-fig.update_layout(
-    legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="center",
-        x=0.5
-    ),
-    margin=dict(t=100),  # Add top margin for the legend
-    annotations=[dict(
-        text=f'{len(df)}',
-        x=0.5,
-        y=0.5,
-        font_size=20,
-        showarrow=False
-    )]
-)
+fig = create_pie_chart(df, 'HUMRAT_TEUNA')
 
 app.layout = html.Div([
     html.H1('Accidents Map'),
