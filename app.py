@@ -1,3 +1,11 @@
+"""
+Author: Shai Sussman
+Date: 2025-04-12
+Description: This application provides an interactive visualization of Israeli election data using Dash.
+
+Key Features:
+- 
+"""
 from dash import Dash, html, dcc
 import pandas as pd
 import geopandas as gpd
