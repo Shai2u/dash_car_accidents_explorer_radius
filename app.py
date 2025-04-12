@@ -134,7 +134,7 @@ app.layout = html.Div([
         ], style={'width': '25%', 'padding': '10px'}),
         html.Div([
             dl.Map([
-                dl.TileLayer(),
+                dl.TileLayer(url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
                 dl.GeoJSON(
                     id='accidents-geojson', data=gdf_json,
                     pointToLayer=assign_point_to_layer(),  # how to draw points
