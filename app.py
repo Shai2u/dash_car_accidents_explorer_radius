@@ -6,7 +6,7 @@ Description: This application provides an interactive visualization of Israeli e
 Key Features:
 - 
 """
-from dash import Dash, html, dcc, Input, Output, callback
+from dash import Dash, html, dcc, Input, Output, callback, State
 from dash_extensions.javascript import assign
 import pandas as pd
 import geopandas as gpd
@@ -134,15 +134,17 @@ app.layout = html.Div([
         ], style={'width': '25%', 'padding': '10px'}),
         html.Div([
             dl.Map([
-                dl.TileLayer(url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
+                dl.TileLayer(),
                 dl.GeoJSON(
                     id='accidents-geojson', data=gdf_json,
                     pointToLayer=assign_point_to_layer(),  # how to draw points
                     # onEachFeature=assign_on_each_feature(),  # add (custom) tooltip
                     hideout=hide_out_dict,
                 ),
-            ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'})
-        ], style={'width': '75%', 'padding': '10px'})
+                dl.Circle(center=center, radius=10000, id='circle_polygon')
+            ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'}),
+            html.Div(id='mouse-position', style={'position': 'absolute', 'bottom': '10px', 'left': '10px', 'zIndex': '1000', 'backgroundColor': 'white', 'padding': '5px', 'borderRadius': '5px'})
+        ], style={'width': '75%', 'padding': '10px', 'position': 'relative'})
     ], style={'display': 'flex', 'flexDirection': 'row'})
 ])
 
@@ -151,17 +153,26 @@ app.layout = html.Div([
     Output('accidents-geojson', 'data'),
     Output('accidents-geojson', 'hideout'),
     Output('pie-chart', 'figure'),
-    Input('column-selector', 'value')
+    Output('circle_polygon', 'center'),
+    Input('column-selector', 'value'),
+    Input('accidents-map-object', 'n_clicks'),
+    State('accidents-map-object', 'clickData')
 )
-def update_map_colors(selected_column):
+def update_map_colors(selected_column, _, clickdate):
     # Create a new GeoJSON with color properties
+    if clickdate:
+        center = clickdate['latlng']['lat'], clickdate['latlng']['lng']
+    else:
+        center = [32.0853, 34.7818]
+
     gdf_copy = gdf.copy()
     gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
     hideout={
             'active_col': col,
             'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
             }
-    return gdf_copy.__geo_interface__, hideout, create_pie_chart(df, selected_column, col_values_color[selected_column])
+    return gdf_copy.__geo_interface__, hideout, create_pie_chart(df, selected_column, col_values_color[selected_column]), center
+
 
 if __name__ == '__main__':
     # Create geometry column from lat/lon
