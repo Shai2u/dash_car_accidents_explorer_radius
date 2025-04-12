@@ -127,14 +127,25 @@ app.layout = html.Div([
                             for col in columns_list],
                     value='HUMRAT_TEUNA',  # Default value
                     style={'width': '100%', 'marginBottom': '20px'}
-                )
+                ),
+                html.Div([
+                    html.Label('Circle Radius (KM):'),
+                    dcc.Slider(
+                        id='radius-slider',
+                        min=1000,
+                        max=50000,
+                        step=1000,
+                        value=10000,
+                        marks={i: f'{i//1000}' for i in range(1000, 51000, 2000)},
+                    )
+                ], style={'marginTop': '20px'})
             ]),
             html.Div(dcc.Graph(id='pie-chart', figure=fig),
                     style={'width': '100%', 'height': '80vh'})
         ], style={'width': '25%', 'padding': '10px'}),
         html.Div([
             dl.Map([
-                dl.TileLayer(),
+                dl.TileLayer(url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
                 dl.GeoJSON(
                     id='accidents-geojson', data=gdf_json,
                     pointToLayer=assign_point_to_layer(),  # how to draw points
@@ -154,11 +165,13 @@ app.layout = html.Div([
     Output('accidents-geojson', 'hideout'),
     Output('pie-chart', 'figure'),
     Output('circle_polygon', 'center'),
+    Output('circle_polygon', 'radius'),
     Input('column-selector', 'value'),
     Input('accidents-map-object', 'n_clicks'),
-    State('accidents-map-object', 'clickData')
+    State('accidents-map-object', 'clickData'),
+    Input('radius-slider', 'value')
 )
-def update_map_colors(selected_column, _, clickdate):
+def update_map_colors(selected_column, _, clickdate, radius):
     # Create a new GeoJSON with color properties
     if clickdate:
         center = clickdate['latlng']['lat'], clickdate['latlng']['lng']
@@ -168,10 +181,10 @@ def update_map_colors(selected_column, _, clickdate):
     gdf_copy = gdf.copy()
     gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
     hideout={
-            'active_col': col,
+            'active_col': selected_column,
             'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
             }
-    return gdf_copy.__geo_interface__, hideout, create_pie_chart(df, selected_column, col_values_color[selected_column]), center
+    return gdf_copy.__geo_interface__, hideout, create_pie_chart(df, selected_column, col_values_color[selected_column]), center, radius
 
 
 if __name__ == '__main__':
