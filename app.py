@@ -158,7 +158,9 @@ app.layout = html.Div([
                     # onEachFeature=assign_on_each_feature(),  # add (custom) tooltip
                     hideout=hide_out_dict,
                 ),
-                dl.Circle(center=center, radius=10000, id='circle_polygon'),
+                dl.Circle(center=center, radius=10000, id='circle_polygon',
+                          dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
+                dl.Polygon(positions=[center, center, center], id='costum_polygon', dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
                 dl.FeatureGroup([dl.EditControl(id="edit_control")])
             ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'}),
             html.Div(id='mouse-position', style={'position': 'absolute', 'bottom': '10px', 'left': '10px', 'zIndex': '1000', 'backgroundColor': 'white', 'padding': '5px', 'borderRadius': '5px'})
@@ -173,6 +175,8 @@ app.layout = html.Div([
     Output('pie-chart', 'figure'),
     Output('circle_polygon', 'center'),
     Output('circle_polygon', 'radius'),
+    Output("edit_control", "editToolbar"),
+    Output("costum_polygon", "positions"),
     Input('column-selector', 'value'),
     Input('accidents-map-object', 'n_clicks'),
     State('accidents-map-object', 'clickData'),
@@ -211,26 +215,28 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson):
         gdf_copy = gdf_copy.iloc[filtered_indices]
     else:
         center = [32.0853, 34.7818]
-
+    
+    polygon_positions = []
     if edit_geojson:
         # Convert the GeoJSON to a GeoDataFrame
-        edit_gdf = gpd.GeoDataFrame.from_features(edit_geojson, crs="EPSG:4326")
-        # Print the GeoDataFrame info
-        print("Drawn polygon info:")
-        print(f"Number of features: {len(edit_gdf)}")
-        print(f"Area: {edit_gdf.geometry.area.sum()} square degrees")
-        print(f"CRS: {edit_gdf.crs}")
-        
-        # Filter points within the drawn polygon
-        points_within = gdf_copy[gdf_copy.geometry.within(edit_gdf.geometry.unary_union)]
-        gdf_copy = points_within
+        edit_gdf = gpd.GeoDataFrame.from_features(edit_geojson)
+        if len(edit_gdf) > 0:
+            edit_gdf.set_geometry(col='geometry', inplace=True)
+            
+            # Filter points within the drawn polygon
+            points_within = gdf_copy[gdf_copy.geometry.within(edit_gdf.geometry.unary_union)]
+            gdf_copy = points_within
+            radius = 0
+            polygon_positions = [c for c in edit_gdf.iloc[0]['geometry'].exterior.coords]
+            polygon_positions = [[item[0], item[1]] for item in polygon_positions]
+            print('pause')
     
     hideout = {
         'active_col': selected_column,
         'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
     }
     
-    return gdf_copy.__geo_interface__, hideout, create_pie_chart(gdf_copy, selected_column, col_values_color[selected_column]), center, radius
+    return gdf_copy.__geo_interface__, hideout, create_pie_chart(gdf_copy, selected_column, col_values_color[selected_column]), center, radius, dict(mode="remove", action="clear all"), polygon_positions
 
 
 if __name__ == '__main__':
