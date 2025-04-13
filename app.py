@@ -38,13 +38,11 @@ def create_pie_chart(df: pd.DataFrame, column_name: str, color_map: dict = None)
     if color_map:
         unique_values = df[column_name].unique()
         fig = px.pie(df, names=column_name,
-                     title=f'Distribution of {column_name}',
                      hole=0.4,
                      color=column_name, 
                      color_discrete_map=color_map)
     else:
         fig = px.pie(df, names=column_name,
-                     title=f'Distribution of {column_name}',
                      hole=0.4)
 
     fig.update_traces(textposition='inside', textinfo='percent')
