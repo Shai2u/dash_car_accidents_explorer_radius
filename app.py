@@ -158,7 +158,8 @@ app.layout = html.Div([
                     # onEachFeature=assign_on_each_feature(),  # add (custom) tooltip
                     hideout=hide_out_dict,
                 ),
-                dl.Circle(center=center, radius=10000, id='circle_polygon')
+                dl.Circle(center=center, radius=10000, id='circle_polygon'),
+                dl.FeatureGroup([dl.EditControl(id="edit_control")])
             ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'}),
             html.Div(id='mouse-position', style={'position': 'absolute', 'bottom': '10px', 'left': '10px', 'zIndex': '1000', 'backgroundColor': 'white', 'padding': '5px', 'borderRadius': '5px'})
         ], style={'width': '75%', 'padding': '10px', 'position': 'relative'})
@@ -175,9 +176,10 @@ app.layout = html.Div([
     Input('column-selector', 'value'),
     Input('accidents-map-object', 'n_clicks'),
     State('accidents-map-object', 'clickData'),
-    Input('radius-slider', 'value')
+    Input('radius-slider', 'value'),
+    Input("edit_control", "geojson")
 )
-def update_map(selected_column, _, clickdate, radius):
+def update_map(selected_column, _, clickdate, radius, edit_geojson):
     # Create a new GeoDataFrame with color properties
     gdf_copy = gdf.copy()
     gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
@@ -210,6 +212,18 @@ def update_map(selected_column, _, clickdate, radius):
     else:
         center = [32.0853, 34.7818]
 
+    if edit_geojson:
+        # Convert the GeoJSON to a GeoDataFrame
+        edit_gdf = gpd.GeoDataFrame.from_features(edit_geojson, crs="EPSG:4326")
+        # Print the GeoDataFrame info
+        print("Drawn polygon info:")
+        print(f"Number of features: {len(edit_gdf)}")
+        print(f"Area: {edit_gdf.geometry.area.sum()} square degrees")
+        print(f"CRS: {edit_gdf.crs}")
+        
+        # Filter points within the drawn polygon
+        points_within = gdf_copy[gdf_copy.geometry.within(edit_gdf.geometry.unary_union)]
+        gdf_copy = points_within
     
     hideout = {
         'active_col': selected_column,
