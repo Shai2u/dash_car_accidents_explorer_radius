@@ -54,7 +54,7 @@ def create_pie_chart(df: pd.DataFrame, column_name: str, color_map: dict = None)
             xanchor="center",
             x=0.5
         ),
-        margin=dict(t=100),  # Add top margin for the legend
+        margin=dict(t=75),  # Add top margin for the legend
         annotations=[dict(
             text=f'{len(df)}',
             x=0.5,
@@ -65,6 +65,42 @@ def create_pie_chart(df: pd.DataFrame, column_name: str, color_map: dict = None)
     )
     return fig
 
+def create_grid_scatterplot() -> Set:
+    """
+    Creates a scatterplot with 100 points arranged in a 5x10 grid.
+    
+    Returns:
+        Set: A Plotly Express figure object with the grid scatterplot
+    """
+    # Create x and y coordinates for the grid
+    x = np.repeat(np.arange(5), 10)  # 5 columns
+    y = np.tile(np.arange(10), 5)    # 10 rows
+    
+    # Create the scatterplot
+    fig = px.scatter(x=x, y=y)
+    
+    # Update layout to make points equal size and remove grid
+    fig.update_traces(marker=dict(size=10))
+    fig.update_layout(
+        template='plotly_white',
+        showlegend=False,
+        xaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showticklabels=False,
+            title=None
+        ),
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showticklabels=False,
+            title=None
+        ),
+        margin=dict(t=0, b=0, l=0, r=0),
+        title=None
+    )
+    
+    return fig
 
 app = Dash(__name__)
 
@@ -158,8 +194,10 @@ app.layout = html.Div([
                     ])
                 ])
             ]),
-            html.Div(dcc.Graph(id='pie-chart', figure=fig),
-                    style={'width': '100%', 'height': '80vh'})
+            html.Div([
+                dcc.Graph(id='pie-chart', figure=fig, style={'height': '40vh', 'width': '100%'}),
+                dcc.Graph(id='grid-scatterplot', figure=create_grid_scatterplot(), style={'height': '40vh', 'width': '100%'})
+            ], style={'width': '100%', 'display': 'flex', 'flexDirection': 'column'})
         ], style={'width': '25%', 'padding': '10px'}),
         html.Div([
             dl.Map([
