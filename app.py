@@ -14,7 +14,7 @@ import dash_leaflet as dl
 import plotly.express as px
 import json
 from typing import Union, Set
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 from scipy.spatial import cKDTree
 import numpy as np
 
@@ -174,7 +174,7 @@ app.layout = html.Div([
                 ),
                 dl.Circle(center=center, radius=10000, id='circle_polygon',
                           dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
-                dl.Polygon(positions=[center, center, center], id='costum_polygon', dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
+                dl.Polygon(positions=[center, center, center, center], id='costum_polygon', dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
                 dl.FeatureGroup([dl.EditControl(id="edit_control")])
             ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'}),
             html.Div(id='mouse-position', style={'position': 'absolute', 'bottom': '10px', 'left': '10px', 'zIndex': '1000', 'backgroundColor': 'white', 'padding': '5px', 'borderRadius': '5px'})
@@ -197,9 +197,10 @@ app.layout = html.Div([
     State('accidents-map-object', 'clickData'),
     Input('radius-slider', 'value'),
     Input("edit_control", "geojson"),
-    Input('selection-mode', 'value')
+    Input('selection-mode', 'value'),
+    Input("costum_polygon", "positions")
 )
-def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mode):
+def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mode, polygon_positions):
     # Create a new GeoDataFrame with color properties
     gdf_copy = gdf.copy()
     gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
@@ -208,8 +209,9 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mo
     if clickdate:
         center = clickdate['latlng']['lat'], clickdate['latlng']['lng']
         center_point = Point(center[1], center[0])  # Note: Point takes (x,y) = (lon,lat)
-        
         if selection_mode == 'radius':
+            polygon_positions = [center, center, center]
+
             # Create buffer around center point (radius in meters)
             buffer = center_point.buffer((radius/ 111320))
             
@@ -223,10 +225,11 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mo
             
             # Filter the GeoDataFrame
             gdf_copy = gdf_copy.iloc[filtered_indices]
+        else:
+            radius = 0
     else:
         center = [32.0853, 34.7818]
-    
-    polygon_positions = []
+    fallback = False
     if selection_mode == 'polygon' and edit_geojson:
         # Convert the GeoJSON to a GeoDataFrame
         edit_gdf = gpd.GeoDataFrame.from_features(edit_geojson)
@@ -238,7 +241,20 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mo
             gdf_copy = points_within
             radius = 0
             polygon_positions = [c for c in edit_gdf.iloc[0]['geometry'].exterior.coords]
-            polygon_positions = [[item[0], item[1]] for item in polygon_positions]
+            polygon_positions = [[item[1], item[0]] for item in polygon_positions]
+        else:
+            fallback = True
+
+    if (selection_mode == 'polygon') and fallback:
+        if polygon_positions:
+            # Convert polygon positions to a Polygon object
+            coords = [[pos[1], pos[0]] for pos in polygon_positions]  # Convert lat/lng to lon/lat
+            if coords:
+                polygon = Polygon(coords)
+                # Filter points within the polygon
+                gdf_copy = gdf_copy[gdf_copy.geometry.within(polygon)]
+                radius = 0
+
     
     hideout = {
         'active_col': selected_column,
@@ -251,7 +267,6 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mo
             dict(mode="remove", action="clear all"), 
             polygon_positions,
             selection_mode == 'polygon')
-
 
 if __name__ == '__main__':
     # Create geometry column from lat/lon
