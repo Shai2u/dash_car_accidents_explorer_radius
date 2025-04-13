@@ -135,16 +135,30 @@ app.layout = html.Div([
                     style={'width': '100%', 'marginBottom': '20px'}
                 ),
                 html.Div([
-                    html.Label('Circle Radius (KM):'),
-                    dcc.Slider(
-                        id='radius-slider',
-                        min=1000,
-                        max=50000,
-                        step=1000,
-                        value=10000,
-                        marks={i: f'{i//1000}' for i in range(1000, 51000, 2000)},
-                    )
-                ], style={'marginTop': '20px'})
+                    html.Div([
+                        html.Label('Circle Radius (KM):'),
+                        dcc.Slider(
+                            id='radius-slider',
+                            min=1000,
+                            max=50000,
+                            step=1000,
+                            value=10000,
+                            marks={i: f'{i//1000}' for i in range(1000, 51000, 2000)},
+                        )
+                    ]),
+                    html.Div([
+                        html.Label('Selection Mode:'),
+                        dcc.RadioItems(
+                            id='selection-mode',
+                            options=[
+                                {'label': 'Radius', 'value': 'radius'},
+                                {'label': 'Draw Polygon', 'value': 'polygon'}
+                            ],
+                            value='radius',
+                            labelStyle={'display': 'inline-block', 'margin': '0 10px'}
+                        )
+                    ])
+                ])
             ]),
             html.Div(dcc.Graph(id='pie-chart', figure=fig),
                     style={'width': '100%', 'height': '80vh'})
@@ -177,13 +191,15 @@ app.layout = html.Div([
     Output('circle_polygon', 'radius'),
     Output("edit_control", "editToolbar"),
     Output("costum_polygon", "positions"),
+    Output('radius-slider', 'disabled'),
     Input('column-selector', 'value'),
     Input('accidents-map-object', 'n_clicks'),
     State('accidents-map-object', 'clickData'),
     Input('radius-slider', 'value'),
-    Input("edit_control", "geojson")
+    Input("edit_control", "geojson"),
+    Input('selection-mode', 'value')
 )
-def update_map(selected_column, _, clickdate, radius, edit_geojson):
+def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mode):
     # Create a new GeoDataFrame with color properties
     gdf_copy = gdf.copy()
     gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[selected_column])
@@ -193,31 +209,25 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson):
         center = clickdate['latlng']['lat'], clickdate['latlng']['lng']
         center_point = Point(center[1], center[0])  # Note: Point takes (x,y) = (lon,lat)
         
-        # Create buffer around center point (radius in meters)
-        buffer = center_point.buffer((radius/ 111320))
-        
-        # Extract coordinates for KD-tree
-        # points_copy = points.copy()
-        
-        # Create KD-tree for efficient spatial queries
-        # tree = cKDTree(points_copy)
-        
-        # Find points within buffer using KD-tree
-        # First, get approximate candidates using a bounding box
-        minx, miny, maxx, maxy = buffer.bounds
-        candidates = tree.query_ball_point([(minx + maxx)/2, (miny + maxy)/2], 
-                                         r=np.sqrt((maxx-minx)**2 + (maxy-miny)**2)/2)
-        
-        # Then filter candidates to exact buffer
-        filtered_indices = [i for i in candidates if buffer.contains(Point(points[i]))]
-        
-        # Filter the GeoDataFrame
-        gdf_copy = gdf_copy.iloc[filtered_indices]
+        if selection_mode == 'radius':
+            # Create buffer around center point (radius in meters)
+            buffer = center_point.buffer((radius/ 111320))
+            
+            # Find points within buffer using KD-tree
+            minx, miny, maxx, maxy = buffer.bounds
+            candidates = tree.query_ball_point([(minx + maxx)/2, (miny + maxy)/2], 
+                                             r=np.sqrt((maxx-minx)**2 + (maxy-miny)**2)/2)
+            
+            # Then filter candidates to exact buffer
+            filtered_indices = [i for i in candidates if buffer.contains(Point(points[i]))]
+            
+            # Filter the GeoDataFrame
+            gdf_copy = gdf_copy.iloc[filtered_indices]
     else:
         center = [32.0853, 34.7818]
     
     polygon_positions = []
-    if edit_geojson:
+    if selection_mode == 'polygon' and edit_geojson:
         # Convert the GeoJSON to a GeoDataFrame
         edit_gdf = gpd.GeoDataFrame.from_features(edit_geojson)
         if len(edit_gdf) > 0:
@@ -229,14 +239,18 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson):
             radius = 0
             polygon_positions = [c for c in edit_gdf.iloc[0]['geometry'].exterior.coords]
             polygon_positions = [[item[0], item[1]] for item in polygon_positions]
-            print('pause')
     
     hideout = {
         'active_col': selected_column,
         'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
     }
     
-    return gdf_copy.__geo_interface__, hideout, create_pie_chart(gdf_copy, selected_column, col_values_color[selected_column]), center, radius, dict(mode="remove", action="clear all"), polygon_positions
+    return (gdf_copy.__geo_interface__, hideout, 
+            create_pie_chart(gdf_copy, selected_column, col_values_color[selected_column]), 
+            center, radius, 
+            dict(mode="remove", action="clear all"), 
+            polygon_positions,
+            selection_mode == 'polygon')
 
 
 if __name__ == '__main__':
