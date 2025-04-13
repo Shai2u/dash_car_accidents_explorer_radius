@@ -198,7 +198,7 @@ app.layout = html.Div([
                 dcc.Graph(id='pie-chart', figure=fig, style={'height': '40vh', 'width': '100%'}),
                 dcc.Graph(id='grid-scatterplot', figure=create_grid_scatterplot(), style={'height': '40vh', 'width': '100%'})
             ], style={'width': '100%', 'display': 'flex', 'flexDirection': 'column'})
-        ], style={'width': '25%', 'padding': '10px'}),
+        ], style={'width': '30%', 'padding': '2px'}),
         html.Div([
             dl.Map([
                 dl.TileLayer(url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
@@ -214,7 +214,7 @@ app.layout = html.Div([
                 dl.FeatureGroup([dl.EditControl(id="edit_control")])
             ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'}),
             html.Div(id='mouse-position', style={'position': 'absolute', 'bottom': '10px', 'left': '10px', 'zIndex': '1000', 'backgroundColor': 'white', 'padding': '5px', 'borderRadius': '5px'})
-        ], style={'width': '75%', 'padding': '10px', 'position': 'relative'})
+        ], style={'width': '70%', 'padding': '10px', 'position': 'relative'})
     ], style={'display': 'flex', 'flexDirection': 'row'})
 ])
 
