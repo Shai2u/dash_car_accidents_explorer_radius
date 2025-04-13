@@ -54,33 +54,77 @@ def create_pie_chart(df: pd.DataFrame, column_name: str, color_map: dict = None)
             xanchor="center",
             x=0.5
         ),
-        margin=dict(t=75),  # Add top margin for the legend
+        margin=dict(t=75, b=0, l=0, r=0),  # Minimize margins
         annotations=[dict(
             text=f'{len(df)}',
             x=0.5,
             y=0.5,
             font_size=20,
             showarrow=False
-        )]
+        )],
+        autosize=True  # Allow the chart to automatically size itself
     )
     return fig
 
-def create_grid_scatterplot() -> Set:
+def create_grid_scatterplot(point_configs: list = None, color_map_sequence: dict = None) -> Set:
     """
-    Creates a scatterplot with 100 points arranged in a 5x10 grid.
+    Creates a scatterplot with points arranged in a 10x10 grid.
+    Each configuration in the list adds points in continuation of previous points.
+    
+    Args:
+        point_configs (list): List of dictionaries, each containing:
+            - num_points (int): Number of points to add
+            - color (str): Color of the points
+            - topic (str): Topic/name for the points
     
     Returns:
-        Set: A Plotly Express figure object with the grid scatterplot
+        Set: A Plotly Express figure object with the scatterplot
     """
-    # Create x and y coordinates for the grid
-    x = np.repeat(np.arange(5), 10)  # 5 columns
-    y = np.tile(np.arange(10), 5)    # 10 rows
+    if point_configs is None:
+        point_configs = []
     
+    # Initialize coordinates and colors
+    x = []
+    y = []
+    colors = []
+    topic = []
+    hover_texts = []
+    
+    # Calculate points positions
+    points_per_row = 10  # Number of points per row
+    total_points = 0
+    
+    for config in point_configs:
+        num_points = config.get('num_points', 0)
+        color = config.get('color', 'blue')
+        topic = config.get('topic', '')
+        # points_off_set = 0
+        for i in range(num_points):
+            if total_points >= 100:  # Limit to 10x10 grid
+                break
+                
+            row = total_points // points_per_row
+            col = total_points % points_per_row
+            x.append(col)
+            y.append(row)
+            colors.append(topic)
+            hover_texts.append(f"{topic} {total_points+1}")
+            total_points += 1
+        # points_off_set += num_points
+    graph_df = pd.DataFrame({'x':x, 'y':y, 'colors': colors, 'hover_texts':hover_texts})
+    graph_df['colors_'] = graph_df['colors'].astype(str)
     # Create the scatterplot
-    fig = px.scatter(x=x, y=y)
-    
+    fig = px.scatter(data_frame = graph_df, x='x', y='y', color='colors_', hover_name='hover_texts', color_discrete_map = color_map_sequence)
     # Update layout to make points equal size and remove grid
-    fig.update_traces(marker=dict(size=10))
+    fig.update_traces(
+        marker=dict(
+            size=25,  # Increased point size
+            line=dict(width=0),  # Remove outline
+             symbol='square' 
+        )
+    )
+    
+    # Update layout
     fig.update_layout(
         template='plotly_white',
         showlegend=False,
@@ -88,13 +132,15 @@ def create_grid_scatterplot() -> Set:
             showgrid=False,
             zeroline=False,
             showticklabels=False,
-            title=None
+            title=None,
+            range=[-0.5, 9.5]  # Fixed range for 10 columns
         ),
         yaxis=dict(
             showgrid=False,
             zeroline=False,
             showticklabels=False,
-            title=None
+            title=None,
+            range=[-0.5, 9.5]  # Fixed range for 10 rows
         ),
         margin=dict(t=0, b=0, l=0, r=0),
         title=None
@@ -130,11 +176,13 @@ gdf_copy['color'] = gdf_copy[selected_column].astype(str).map(col_values_color[s
 gdf_json = gdf.copy().__geo_interface__
 # Create pie chart
 fig = create_pie_chart(df, selected_column, col_values_color[selected_column])
+
 # Hideout dictionary for map
 
 hide_out_dict = {'active_col': selected_column,
                  'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
                  }
+
 def assign_point_to_layer():
     """
     Creates a JavaScript function to assign a point to a layer with a specific color.
@@ -196,9 +244,9 @@ app.layout = html.Div([
             ]),
             html.Div([
                 dcc.Graph(id='pie-chart', figure=fig, style={'height': '40vh', 'width': '100%'}),
-                dcc.Graph(id='grid-scatterplot', figure=create_grid_scatterplot(), style={'height': '40vh', 'width': '100%'})
+                dcc.Graph(id='grid-scatterplot', figure=create_grid_scatterplot(point_configs = [{'num_points': 13, 'color': 'blue', 'topic': 'Points'}, {'num_points': 12, 'color': 'green', 'topic': 'DontKnow'}]), style={'height': '40vh', 'width': '100%'})
             ], style={'width': '100%', 'display': 'flex', 'flexDirection': 'column'})
-        ], style={'width': '30%', 'padding': '2px'}),
+        ], style={'width': '20%', 'padding': '2px'}),
         html.Div([
             dl.Map([
                 dl.TileLayer(url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
@@ -212,7 +260,7 @@ app.layout = html.Div([
                           dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
                 dl.Polygon(positions=[center, center, center, center], id='costum_polygon', dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
                 dl.FeatureGroup([dl.EditControl(id="edit_control")])
-            ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '80vh'}),
+            ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '90vh'}),
             html.Div(id='mouse-position', style={'position': 'absolute', 'bottom': '10px', 'left': '10px', 'zIndex': '1000', 'backgroundColor': 'white', 'padding': '5px', 'borderRadius': '5px'})
         ], style={'width': '70%', 'padding': '10px', 'position': 'relative'})
     ], style={'display': 'flex', 'flexDirection': 'row'})
@@ -223,6 +271,7 @@ app.layout = html.Div([
     Output('accidents-geojson', 'data'),
     Output('accidents-geojson', 'hideout'),
     Output('pie-chart', 'figure'),
+    Output('grid-scatterplot', 'figure'),
     Output('circle_polygon', 'center'),
     Output('circle_polygon', 'radius'),
     Output("edit_control", "editToolbar"),
@@ -296,9 +345,14 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mo
         'active_col': selected_column,
         'circleOptions': {'fillOpacity': 1, 'stroke': False, 'radius': 3.5}
     }
-    
+    color_label_count = gdf_copy.groupby(selected_column).agg(color = ('color','first'), count_ =('color', 'count') ).reset_index()
+    color_label_count['count_normalized'] = (color_label_count['count_']/color_label_count['count_'].sum()).apply(lambda p: round(p * 100))
+    poitns_configurations = [{'num_points': item['count_normalized'], 'color': item['color'], 'topic': item[selected_column]} for i, item in color_label_count.iterrows()]
+
+    grid_scatterplot_fig = create_grid_scatterplot(point_configs = poitns_configurations, color_map_sequence = col_values_color[selected_column])
     return (gdf_copy.__geo_interface__, hideout, 
-            create_pie_chart(gdf_copy, selected_column, col_values_color[selected_column]), 
+            create_pie_chart(gdf_copy, selected_column, col_values_color[selected_column]),
+            grid_scatterplot_fig,
             center, radius, 
             dict(mode="remove", action="clear all"), 
             polygon_positions,
@@ -307,3 +361,4 @@ def update_map(selected_column, _, clickdate, radius, edit_geojson, selection_mo
 if __name__ == '__main__':
     # Create geometry column from lat/lon
     app.run_server(debug=True)
+
