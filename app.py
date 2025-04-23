@@ -260,9 +260,8 @@ app.layout = html.Div([
                           dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
                 dl.Polygon(positions=[center, center, center, center], id='costum_polygon', dashArray = '5, 10', fillOpacity = 0, color='black', weight=2),
                 dl.FeatureGroup([dl.EditControl(id="edit_control")])
-            ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '90vh'}),
-            html.Div(id='mouse-position', style={'position': 'absolute', 'bottom': '10px', 'left': '10px', 'zIndex': '1000', 'backgroundColor': 'white', 'padding': '5px', 'borderRadius': '5px'})
-        ], style={'width': '70%', 'padding': '10px', 'position': 'relative'})
+            ], id = 'accidents-map-object', center=center, zoom=12, style={'width': '100%', 'height': '90vh'})
+            ], style={'width': '70%', 'padding': '10px', 'position': 'relative'})
     ], style={'display': 'flex', 'flexDirection': 'row'})
 ])
 
