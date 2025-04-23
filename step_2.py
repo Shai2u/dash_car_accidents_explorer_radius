@@ -36,7 +36,7 @@ def generate_donut_chart():
     )
     return fig
 
-def generate_bar_chart():
+def generate_bar_scatterplot():
     # Sample data - replace with your actual data
     data = {
         'Month': ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
@@ -44,7 +44,8 @@ def generate_bar_chart():
     }
     df = pd.DataFrame(data)
     
-    fig = px.bar(df, x='Month', y='Accidents')
+    fig = px.scatter(df, x='Month', y='Accidents')
+    fig.update_traces(marker=dict(size=12)) 
     fig.update_layout(
         title='Monthly Accident Statistics',
         paper_bgcolor='rgba(0,0,0,0)',
@@ -53,7 +54,7 @@ def generate_bar_chart():
     return fig 
 
 pie_chart = generate_donut_chart()
-bar_chart = generate_bar_chart()
+bar_chart = generate_bar_scatterplot()
 
 # Define dropdown options
 dropdown_options = [
