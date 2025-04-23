@@ -36,7 +36,7 @@ def generate_donut_chart():
     )
     return fig
 
-def generate_bar_scatterplot():
+def generate_scatterplot():
     # Sample data - replace with your actual data
     data = {
         'Month': ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
@@ -54,7 +54,7 @@ def generate_bar_scatterplot():
     return fig 
 
 pie_chart = generate_donut_chart()
-bar_chart = generate_bar_scatterplot()
+bar_chart = generate_scatterplot()
 
 # Define dropdown options
 dropdown_options = [
