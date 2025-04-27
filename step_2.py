@@ -103,7 +103,7 @@ app.layout = html.Div([
                             {'label': 'Buffer', 'value': 'buffer'}
                         ],
                         value='draw',
-                        labelStyle={'display': 'block', 'margin': '10px 0', 'fontSize': '20px'}
+                        labelStyle={'display': 'inline-block', 'margin': '10px 20px', 'fontSize': '20px'}
                     )
                 ])
             ]),
