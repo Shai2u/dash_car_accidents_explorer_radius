@@ -140,7 +140,7 @@ app.layout = html.Div([
                     dcc.Dropdown(
                         id='category-dropdown',
                         options=dropdown_options,
-                        value='opt1',
+                        value='HODESH_TEUNA',
                         style={'width': '100%', 'marginBottom': '20px', 'fontSize': '20px'}
                     )
                 ]),
